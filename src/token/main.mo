@@ -82,7 +82,6 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
     private stable var metadata_: [Metadata] = Option.get(args.metadata, []);
     private stable var index: Nat = 0;
     private stable var balances: Trie.Trie<AccountId, Nat> = Trie.empty();
-    private stable var nonces: Trie.Trie<AccountId, Nat> = Trie.empty();
     private stable var allowances: Trie.Trie2D<AccountId, AccountId, Nat> = Trie.empty();
     private var drc202 = DRC202.DRC202({EN_DEBUG = false; MAX_CACHE_TIME = 3 * 30 * 24 * 3600 * 1000000000; MAX_CACHE_NUMBER_PER = 100; MAX_STORAGE_TRIES = 2; }, standard_);
     private stable var drc202_lastStorageTime : Time.Time = 0;
@@ -581,7 +580,6 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             };
         };
         index += 1;
-        nonces := Trie.put(nonces, keyb(AID.principalToAccountBlob(msg.caller, null)), Blob.equal, 1).0;
         drc202.put(txn);
         drc202.pushLastTxn([owner_], txn.txid);
         genesisCreated := true;

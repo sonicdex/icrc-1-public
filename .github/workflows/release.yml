@@ -1,0 +1,34 @@
+on:
+    push:
+        tags:
+            - '*'
+        branches:
+            - 'main'
+jobs:
+  icrc1-build:
+    runs-on: ubuntu-latest 
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Install dfx
+      uses: dfinity/setup-dfx@main
+      with:
+          dfx-version: "0.15.1"
+    - name: Build target canister
+      run: dfx build --check icrc1
+    - name: Download PocketIC
+      run: wget -c https://download.dfinity.systems/ic/69e1408347723dbaa7a6cd2faa9b65c42abbe861/openssl-static-binaries/x86_64-linux/pocket-ic.gz    
+    - name: Extract and chmod PocketIC
+      run: gunzip pocket-ic.gz && chmod +x pocket-ic
+    - name: Install PocketIC Python Library
+      run: pip3 install --user pocket-ic
+    - name: Install pytest
+      run: pip3 install --user pytest
+    - name: Run tests
+      run: python3 tests/bootstrap.py
+    - name: Copy Wasm Build
+      run: cp ./.dfx/local/canisters/icrc1/icrc1.wasm icrc1.wasm
+    - name: Compute Wasm Hash
+      run: shasum -a 256 ./icrc1.wasm  | cut -d ' ' -f 1 > icrc1.wasm.shasum
+    - name: Print Wasm Hash
+      run: cat ./icrc1.wasm.shasum

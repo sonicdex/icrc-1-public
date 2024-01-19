@@ -174,18 +174,16 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         };
     };
 
-    private func _checkFee(_caller: AccountId, _percent: Nat, _amount: Nat): Bool{
+    private func _checkFee(_caller: AccountId, _amount: Nat): Bool{
         if(fee_ > 0) {
-            let fee = fee_ * _percent / 100;
-            return _getBalance(_caller) >= fee + _amount;
+            return _getBalance(_caller) >= fee_ + _amount;
         };
         return true;
     };
-    private func _chargeFee(_caller: AccountId, _percent: Nat): Bool{
+    private func _chargeFee(_caller: AccountId): Bool{
         if(fee_ > 0) {
-            let fee = fee_ * _percent / 100;
-            if (_getBalance(_caller) >= fee){
-                ignore _send(_caller, FEE_TO, fee, false);
+            if (_getBalance(_caller) >= fee_){
+                ignore _send(_caller, FEE_TO, fee_, false);
                 return true;
             } else {
                 return false;
@@ -344,14 +342,14 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         let to = _to;
         let operation: Operation = #transfer({ action = #send; });
         // check fee
-        if(not(_checkFee(from, 100, _value))){
+        if(not(_checkFee(from, _value))){
             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
         };
         // transfer
         let res = _transfer(__caller, _sa, from, to, _value, _nonce, _data, operation, _isSpender);
         // charge fee
         switch(res){
-            case(#ok(v)){ ignore _chargeFee(from, 100); return res; };
+            case(#ok(v)){ ignore _chargeFee(from); return res; };
             case(#err(v)){ return res; };
         };
     };

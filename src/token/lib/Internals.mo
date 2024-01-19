@@ -69,10 +69,6 @@ module {
         #InsufficientAllowance;
         #UndefinedError;
         #InsufficientBalance;
-        #NonceError;
-        #NoLockedTransfer;
-        #DuplicateExecutedTransfer;
-        #LockedTransferExpired;
       };
       message : Text;
     };

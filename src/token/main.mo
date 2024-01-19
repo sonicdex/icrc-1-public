@@ -42,7 +42,6 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
     type Decider = Address;
     type Amount = Nat;
     type Sa = [Nat8];
-    type Nonce = Nat;
     type Data = Blob;
     type Timeout = Nat32;
 
@@ -238,7 +237,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         };
     };
     
-    private func _transfer(_msgCaller: Principal, _sa: ?[Nat8], _from: AccountId, _to: AccountId, _value: Nat, _nonce: ?Nat, _data: ?Blob, 
+    private func _transfer(_msgCaller: Principal, _sa: ?[Nat8], _from: AccountId, _to: AccountId, _value: Nat, _data: ?Blob, 
     _operation: Operation, _isAllowance: Bool): (result: TxnResult) {
         var callerPrincipal = _msgCaller;
         let caller = _getAccountIdFromPrincipal(_msgCaller, _sa);
@@ -335,7 +334,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         return #ok(txid);
     };
 
-    private func __transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _nonce: ?Nonce, _sa: ?Sa, _data: ?Data, _isSpender: Bool) : 
+    private func __transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _sa: ?Sa, _data: ?Data, _isSpender: Bool) : 
     (result: TxnResult) {
         let from = _from;
         let to = _to;
@@ -345,7 +344,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
         };
         // transfer
-        let res = _transfer(__caller, _sa, from, to, _value, _nonce, _data, operation, _isSpender);
+        let res = _transfer(__caller, _sa, from, to, _value, _data, operation, _isSpender);
         // charge fee
         switch(res){
             case(#ok(v)){ ignore _chargeFee(from); return res; };
@@ -388,10 +387,6 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
                     case(#InsufficientAllowance) { return #Err(#GenericError({ error_code = 101; message = err.message })) };
                     case(#UndefinedError) { return #Err(#GenericError({ error_code = 999; message = err.message })) };
                     case(#InsufficientBalance) { return #Err(#InsufficientFunds({ balance = _getBalance(_a); })) };
-                    case(#NonceError) { return #Err(#GenericError({ error_code = 102; message = err.message })) };
-                    case(#NoLockedTransfer) { return #Err(#GenericError({ error_code = 103; message = err.message })) };
-                    case(#DuplicateExecutedTransfer) { return #Err(#GenericError({ error_code = 104; message = err.message })) };
-                    case(#LockedTransferExpired) { return #Err(#GenericError({ error_code = 105; message = err.message })) };
                 };
             };
         };
@@ -475,7 +470,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             case(#TransferErr(err)){ return #Err(err); };
             case(_){};
         };
-        let res = __transferFrom(msg.caller, from, to, _args.amount, null, sub, data, false);
+        let res = __transferFrom(msg.caller, from, to, _args.amount, sub, data, false);
 
         // Store data to the DRC202 scalable bucket, requires a 20 second interval to initiate a batch store, and may be rejected if you store frequently.
         if (Time.now() > drc202_lastStorageTime + 20*1000000000) { 

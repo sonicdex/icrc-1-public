@@ -21,7 +21,6 @@ module {
   public type Metadata = { content : Text; name : Text };
   public type CoinSeconds = { coinSeconds: Nat; updateTime: Int };
   public type Operation = {
-    #approve : { allowance : Nat };
     #transfer : { action : { #burn; #mint; #send } };
   };
   public type Time = Int;
@@ -65,8 +64,6 @@ module {
     #ok : Txid;
     #err : {
       code : {
-        #InsufficientGas;
-        #InsufficientAllowance;
         #UndefinedError;
         #InsufficientBalance;
       };

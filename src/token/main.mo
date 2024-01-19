@@ -23,7 +23,7 @@ import DRC202 "./lib/DRC202";
 import ICRC1 "./lib/ICRC1";
 import Internals "lib/Internals";
 
-shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
+shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
 
     type Metadata = TokenTypes.Metadata;
     type Gas = TokenTypes.Gas;
@@ -31,15 +31,11 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
     type AccountId = TokenTypes.AccountId;
     type Txid = TokenTypes.Txid;
     type TxnResult = TokenTypes.TxnResult;
-    type ExecuteType = TokenTypes.ExecuteType;
     type Operation = TokenTypes.Operation;
     type Transaction = TokenTypes.Transaction;
     type TxnRecord = TokenTypes.TxnRecord;
-    type Allowance = TokenTypes.Allowance;
     type From = Address;
     type To = Address;
-    type Spender = Address;
-    type Decider = Address;
     type Amount = Nat;
     type Sa = [Nat8];
     type Data = Blob;
@@ -65,8 +61,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
     /*
     * Config 
     */
-    private stable var FEE_TO: AccountId = _getAccountId(Principal.toText(args.owner)); 
-    private stable var AllowanceLimit: Nat = 50;
+    private stable var FEE_TO: AccountId = _getAccountId(Principal.toText(args.owner));
     private let MAX_MEMORY: Nat = 23*1024*1024*1024; // 23G
 
     /* 
@@ -81,16 +76,8 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
     private stable var metadata_: [Metadata] = Option.get(args.metadata, []);
     private stable var index: Nat = 0;
     private stable var balances: Trie.Trie<AccountId, Nat> = Trie.empty();
-    private stable var allowances: Trie.Trie2D<AccountId, AccountId, Nat> = Trie.empty();
     private var drc202 = DRC202.DRC202({EN_DEBUG = false; MAX_CACHE_TIME = 3 * 30 * 24 * 3600 * 1000000000; MAX_CACHE_NUMBER_PER = 100; MAX_STORAGE_TRIES = 2; }, standard_);
     private stable var drc202_lastStorageTime : Time.Time = 0;
-    
-    private func _checkAllowanceLimit(_a: AccountId) : Bool{
-        switch(Trie.get(allowances, keyb(_a), Blob.equal)){ 
-            case(?(allowTrie)){ return Trie.size(allowTrie) < AllowanceLimit; };
-            case(_){ return true; };
-        };
-    };
 
     /* 
     * Local Functions
@@ -126,52 +113,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             };
         };
     };
-
-    private func _getAllowances(_a: AccountId): [Allowance]{
-        switch(Trie.get(allowances, keyb(_a), Blob.equal)){ 
-            case(?(allowTrie)){
-                var a = Iter.map(Trie.iter(allowTrie), func (entry: (AccountId, Nat)): Allowance{
-                    return { spender = entry.0; remaining = entry.1; };
-                });
-                return Iter.toArray(a);
-            };
-            case(_){
-                return [];
-            };
-        };
-    };
     
-    private func _getAllowance(_a: AccountId, _s: AccountId): Nat{
-        let expiresAt = _getAllowanceExpiration(_a, _s);
-        if (expiresAt > 0 and Time.now() > expiresAt){
-            _setAllowance(_a, _s, 0);
-            _setAllowanceExpiration(_a, _s, 0);
-            return 0;
-        };
-        switch(Trie.get(allowances, keyb(_a), Blob.equal)){
-            case(?(allowTrie)){
-                switch(Trie.get(allowTrie, keyb(_s), Blob.equal)){
-                    case(?(v)){
-                        return v;
-                    };
-                    case(_){
-                        return 0;
-                    };
-                };
-            };
-            case(_){
-                return 0;
-            };
-        };
-    };
-    private func _setAllowance(_a: AccountId, _s: AccountId, _v: Nat): (){
-        if (_v > 0){
-            allowances := Trie.put2D(allowances, keyb(_a), Blob.equal, keyb(_s), Blob.equal, _v);
-        }else{
-            allowances := Trie.remove2D(allowances, keyb(_a), Blob.equal, keyb(_s), Blob.equal).0;
-        };
-    };
-
     private func _checkFee(_caller: AccountId, _amount: Nat): Bool{
         if(fee_ > 0) {
             return _getBalance(_caller) >= fee_ + _amount;
@@ -224,21 +166,9 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             return false;
         };
     };
-    private func _lock(_from: AccountId, _value: Nat, _isCheck: Bool): Bool{
-        var balance_from = _getBalance(_from);
-        if (balance_from >= _value){
-            if (not(_isCheck)) { 
-                balance_from -= _value;
-                _setBalance(_from, balance_from);
-            };
-            return true;
-        } else {
-            return false;
-        };
-    };
-    
+
     private func _transfer(_msgCaller: Principal, _sa: ?[Nat8], _from: AccountId, _to: AccountId, _value: Nat, _data: ?Blob, 
-    _operation: Operation, _isAllowance: Bool): (result: TxnResult) {
+    _operation: Operation): (result: TxnResult) {
         var callerPrincipal = _msgCaller;
         let caller = _getAccountIdFromPrincipal(_msgCaller, _sa);
         let from = _from;
@@ -247,12 +177,10 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         var allowed: Nat = 0; // *
         var spendValue = _value;
         var effectiveFee : Internals.Gas = #token(fee_);
-        if (_isAllowance){
-            allowed := _getAllowance(from, caller);
-        };
         let data = Option.get(_data, Blob.fromArray([]));
 
         if (data.size() > 2048){
+            // drc202 limitations
             return #err({ code=#UndefinedError; message="The length of _data must be less than 2 KB"; });
         };
         switch(_operation){
@@ -288,15 +216,9 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
                     case(#send){
                         if (not(_send(from, to, value, true))){
                             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
-                        } else if (_isAllowance and allowed < spendValue){
-                            return #err({ code=#InsufficientAllowance; message="Insufficient Allowance"; });
                         };
                         ignore _send(from, to, value, false);
                         var as: [AccountId] = [from, to];
-                        if (_isAllowance and spendValue > 0){
-                            _setAllowance(from, caller, allowed - spendValue);
-                            as := AID.arrayAppend(as, [caller]);
-                        };
                         drc202.pushLastTxn(as, txid);
                     };
                     case(#mint){
@@ -308,24 +230,12 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
                     case(#burn){
                         if (not(_burn(from, value, true))){
                             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
-                        } else if (_isAllowance and allowed < spendValue){
-                            return #err({ code=#InsufficientAllowance; message="Insufficient Allowance"; });
                         };
                         ignore _burn(from, value, false);
                         var as: [AccountId] = [from];
-                        if (_isAllowance and spendValue > 0){
-                            _setAllowance(from, caller, allowed - spendValue);
-                            as := AID.arrayAppend(as, [caller]);
-                        };
                         drc202.pushLastTxn(as, txid);
                     };
                 };
-            };
-            case(#approve(operation)){
-                spendValue := 0;
-                _setAllowance(from, to, operation.allowance); 
-                var as: [AccountId] = [from, to];
-                drc202.pushLastTxn(as, txid);
             };
         };
         // insert record
@@ -334,7 +244,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         return #ok(txid);
     };
 
-    private func __transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _sa: ?Sa, _data: ?Data, _isSpender: Bool) : 
+    private func __transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _sa: ?Sa, _data: ?Data) : 
     (result: TxnResult) {
         let from = _from;
         let to = _to;
@@ -344,7 +254,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
         };
         // transfer
-        let res = _transfer(__caller, _sa, from, to, _value, _data, operation, _isSpender);
+        let res = _transfer(__caller, _sa, from, to, _value, _data, operation);
         // charge fee
         switch(res){
             case(#ok(v)){ ignore _chargeFee(from); return res; };
@@ -381,10 +291,7 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
                 };
             };
             case(#err(err)){
-                var fee = { expected_fee: Nat = fee_ };
                 switch(err.code){
-                    case(#InsufficientGas) { return #Err(#BadFee(fee)) };
-                    case(#InsufficientAllowance) { return #Err(#GenericError({ error_code = 101; message = err.message })) };
                     case(#UndefinedError) { return #Err(#GenericError({ error_code = 999; message = err.message })) };
                     case(#InsufficientBalance) { return #Err(#InsufficientFunds({ balance = _getBalance(_a); })) };
                 };
@@ -399,16 +306,12 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         }
     };
     private let PERMITTED_DELAY: Int = 180_000_000_000; // 3 minutes
-    private func _icrc1_time_check(_created_at_time: ?Nat64, _isSpender: Bool) : 
-    { #Ok; #TransferErr: TransferError; #TransferFromErr: TransferFromError }{
+    private func _icrc1_time_check(_created_at_time: ?Nat64) : 
+    { #Ok; #TransferErr: TransferError; }{
         switch(_created_at_time){
             case(?(created_at_time)){
                 if (Nat64.toNat(created_at_time) + PERMITTED_DELAY < Time.now()){
-                    if (_isSpender){ 
-                        return #TransferFromErr(#TooOld); 
-                    } else { 
-                        return #TransferErr(#TooOld); 
-                    };
+                    return #TransferErr(#TooOld);
                 };
                 return #Ok;
             };
@@ -466,11 +369,11 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
         let sub = _toSaNat8(_args.from_subaccount);
         let to = _icrc1_get_account(_args.to);
         let data = _args.memo;
-        switch(_icrc1_time_check(_args.created_at_time, false)){
+        switch(_icrc1_time_check(_args.created_at_time)){
             case(#TransferErr(err)){ return #Err(err); };
             case(_){};
         };
-        let res = __transferFrom(msg.caller, from, to, _args.amount, sub, data, false);
+        let res = __transferFrom(msg.caller, from, to, _args.amount, sub, data);
 
         // Store data to the DRC202 scalable bucket, requires a 20 second interval to initiate a batch store, and may be rejected if you store frequently.
         if (Time.now() > drc202_lastStorageTime + 20*1000000000) { 
@@ -478,45 +381,6 @@ shared(msg) actor class DRC20(args: Internals.InstallArgs) = this {
             ignore drc202.store(); 
         };
         return _icrc1_receipt(res, from);
-    };
-    /*
-    * ICRC-2
-    */
-    type ApproveArgs = ICRC1.ApproveArgs;
-    type ApproveError = ICRC1.ApproveError;
-    type TransferFromArgs = ICRC1.TransferFromArgs;
-    type TransferFromError = ICRC1.TransferFromError;
-    type AllowanceArgs = ICRC1.AllowanceArgs;
-    private stable var allowanceExpirations: Trie.Trie2D<AccountId, AccountId, Time.Time> = Trie.empty(); 
-    private func _getAllowanceExpiration(_a: AccountId, _s: AccountId): Time.Time{
-        switch(Trie.get(allowanceExpirations, keyb(_a), Blob.equal)){
-            case(?(allowTrie)){
-                switch(Trie.get(allowTrie, keyb(_s), Blob.equal)){
-                    case(?(v)){
-                        return v;
-                    };
-                    case(_){
-                        return 0;
-                    };
-                };
-            };
-            case(_){
-                return 0;
-            };
-        };
-    };
-    private func _setAllowanceExpiration(_a: AccountId, _s: AccountId, _v: Time.Time): (){
-        if (_v > 0){
-            allowanceExpirations := Trie.put2D(allowanceExpirations, keyb(_a), Blob.equal, keyb(_s), Blob.equal, _v);
-        }else{
-            allowanceExpirations := Trie.remove2D(allowanceExpirations, keyb(_a), Blob.equal, keyb(_s), Blob.equal).0;
-            switch(Trie.get(allowanceExpirations, keyb(_a), Blob.equal)){
-                case(?(allowTrie)){
-                    if (Trie.size(allowTrie) == 0){ allowanceExpirations := Trie.remove(allowanceExpirations, keyb(_a), Blob.equal).0; };
-                };
-                case(_){};
-            };
-        };
     };
 
     // drc202

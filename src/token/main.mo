@@ -70,7 +70,7 @@ shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
     private var standard_: Text = "icrc1";
     private stable var name_: Text = Option.get(args.name, "");
     private stable var symbol_: Text = Option.get(args.symbol, "");
-    private stable var decimals_: Nat8 = args.decimals;
+    private stable let decimals__: Nat8 = args.decimals; // make decimals immutable across upgrades
     private stable var totalSupply_: Nat = args.totalSupply;
     private stable var fee_: Nat = args.fee;
     private stable var metadata_: [Metadata] = Option.get(args.metadata, []);
@@ -335,13 +335,13 @@ shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
         return symbol_;
     };
     public query func icrc1_decimals() : async Nat8{
-        return decimals_;
+        return decimals__;
     };
     public query func icrc1_fee() : async Nat{
         return fee_;
     };
     public query func icrc1_metadata() : async [(Text, Value)]{
-        let md1: [(Text, Value)] = [("icrc1:symbol", #Text(symbol_)), ("icrc1:name", #Text(name_)), ("icrc1:decimals", #Nat(Nat8.toNat(decimals_))), 
+        let md1: [(Text, Value)] = [("icrc1:symbol", #Text(symbol_)), ("icrc1:name", #Text(name_)), ("icrc1:decimals", #Nat(Nat8.toNat(decimals__))), 
         ("icrc1:fee", #Nat(fee_)), ("icrc1:total_supply", #Nat(totalSupply_)), ("icrc1:max_memo_length", #Nat(2048))];
         var md2: [(Text, Value)] = Array.map<Metadata, (Text, Value)>(metadata_, func (item: Metadata) : (Text, Value) {
             if (item.name == "logo"){

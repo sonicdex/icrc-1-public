@@ -23,7 +23,7 @@ import DRC202 "./lib/DRC202";
 import ICRC1 "./lib/ICRC1";
 import Internals "lib/Internals";
 
-shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
+shared(msg) actor class ICRC1Canister(args: Internals.CanisterArgs) = this {
 
     type Metadata = TokenTypes.Metadata;
     type Gas = TokenTypes.Gas;
@@ -61,19 +61,19 @@ shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
     /*
     * Config 
     */
-    private stable var FEE_TO: AccountId = _getAccountId(Principal.toText(args.owner));
+    private stable var FEE_TO: AccountId = _getAccountId(Principal.toText(args.initArgs.owner));
     private let MAX_MEMORY: Nat = 23*1024*1024*1024; // 23G
 
     /* 
     * State Variables 
     */
     private var standard_: Text = "icrc1";
-    private stable var name_: Text = Option.get(args.name, "");
-    private stable var symbol_: Text = Option.get(args.symbol, "");
-    private stable let decimals__: Nat8 = args.decimals; // make decimals immutable across upgrades
-    private stable var totalSupply_: Nat = args.totalSupply;
-    private stable var fee_: Nat = args.fee;
-    private stable var metadata_: [Metadata] = Option.get(args.metadata, []);
+    private stable var name_: Text = Option.get(args.initArgs.name, "");
+    private stable var symbol_: Text = Option.get(args.initArgs.symbol, "");
+    private stable let decimals__: Nat8 = args.initArgs.decimals; // make decimals immutable across upgrades
+    private stable var totalSupply_: Nat = args.initArgs.totalSupply;
+    private stable var fee_: Nat = args.initArgs.fee;
+    private stable var metadata_: [Metadata] = Option.get(args.initArgs.metadata, []);
     private stable var index: Nat = 0;
     private stable var balances: Trie.Trie<AccountId, Nat> = Trie.empty();
     private var drc202 = DRC202.DRC202({EN_DEBUG = false; MAX_CACHE_TIME = 3 * 30 * 24 * 3600 * 1000000000; MAX_CACHE_NUMBER_PER = 100; MAX_STORAGE_TRIES = 2; }, standard_);
@@ -88,8 +88,8 @@ shared(msg) actor class ICRC1Canister(args: Internals.InstallArgs) = this {
         var a = AID.principalToAccountBlob(_p, _sa);
         return a;
     }; 
-    private stable let owner_: AccountId = _getAccountId(Principal.toText(args.owner));
-    private stable let owner_account: Account = { owner = args.owner; subaccount = null; };
+    private stable let owner_: AccountId = _getAccountId(Principal.toText(args.initArgs.owner));
+    private stable let owner_account: Account = { owner = args.initArgs.owner; subaccount = null; };
 
     private func _getBalance(_a: AccountId): Nat{
         switch(Trie.get(balances, keyb(_a), Blob.equal)){

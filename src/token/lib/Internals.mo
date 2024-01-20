@@ -74,7 +74,7 @@ module {
       Text.encodeUtf8(Nat.toText(n));
   };
 
-  public type InstallArgs = {
+  public type InitArgs = {
       totalSupply: Nat;
       decimals: Nat8;
       fee: Nat;
@@ -82,6 +82,12 @@ module {
       symbol: ?Text;
       metadata: ?[Metadata];
       owner: Principal;
+  };
+
+  public type UpgradeArgs = {};
+  public type CanisterArgs = {
+     initArgs : InitArgs;
+     upgradeArgs : ?UpgradeArgs;
   };
   
 };

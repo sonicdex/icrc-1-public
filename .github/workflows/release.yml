@@ -25,7 +25,7 @@ jobs:
     - name: Install pytest
       run: pip3 install --user pytest
     - name: Run tests
-      run: python3 tests/bootstrap.py
+      run: python3 -m unittest tests/icrc1_tests.py
     - name: Copy Wasm Build
       run: cp ./.dfx/local/canisters/icrc1/icrc1.wasm icrc1.wasm
     - name: Compute Wasm Hash

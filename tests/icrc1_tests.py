@@ -11,7 +11,7 @@ class ICRC1LedgerTests(unittest.TestCase):
         self.pic = PocketIC()
         self.user_a = ic.Principal(b"UserA")
         self.user_b = ic.Principal(b"UserB")
-        self.principal_owner = ic.Principal(b"Owner")
+        self.owner = ic.Principal(b"Owner")
 
         with open(
             os.path.join(build_dir, "icrc1.did"), "r", encoding="utf-8"
@@ -27,7 +27,7 @@ class ICRC1LedgerTests(unittest.TestCase):
             "name": "ICRC1",
             "symbol": "ICRC1",
             "metadata": None,
-            "owner": self.principal_owner.to_str(),
+            "owner": self.owner.to_str(),
          },
          "upgradeArgs": None
         }
@@ -41,22 +41,22 @@ class ICRC1LedgerTests(unittest.TestCase):
 
     def test_get_name(self):
         res = self.ledger.icrc1_name()
-        self.assertEqual(res, ["My Token"])
+        self.assertEqual(res, ["ICRC1"])
 
     def test_get_decimals(self):
         res = self.ledger.icrc1_symbol()
-        self.assertEqual(res, ["MYTOKEN"])
+        self.assertEqual(res, ["ICRC1"])
 
     def test_get_fee(self):
         res = self.ledger.icrc1_fee()
-        self.assertEqual(res, [0])
+        self.assertEqual(res, [1000])
 
     def test_get_total_supply(self):
         res = self.ledger.icrc1_total_supply()
-        self.assertEqual(res, [666 + 420])
+        self.assertEqual(res, [10000000000000])
 
     def test_transfer(self):
-        self.pic.set_sender(self.user_a)
+        self.pic.set_sender(self.mint)
 
         receiver = {"owner": self.user_b.to_str(), "subaccount": []}
         res = self.ledger.icrc1_transfer(
@@ -74,19 +74,25 @@ class ICRC1LedgerTests(unittest.TestCase):
         self.pic.set_anonymous_sender()
 
         res = self.ledger.icrc1_balance_of(
-            {"owner": self.user_a.to_str(), "subaccount": []}
+            {"owner": self.owner.to_str(), "subaccount": []}
         )
-        self.assertEqual(res, [666 - 42])
+        # owner_balance - transfer_amount - transfer_fee
+        self.assertEqual(res, [10000000000000 - 42 - 1000])
         res = self.ledger.icrc1_balance_of(
             {"owner": self.user_b.to_str(), "subaccount": []}
         )
-        self.assertEqual(res, [420 + 42])
+        # user_b_balance + transfer_amount
+        self.assertEqual(res, [0 + 42])
 
     def test_get_balance_of(self):
         res = self.ledger.icrc1_balance_of(
             {"owner": self.user_a.to_str(), "subaccount": []}
         )
-        self.assertEqual(res, [666])
+        self.assertEqual(res, [0])
+        res = self.ledger.icrc1_balance_of(
+            {"owner": self.owner.to_str(), "subaccount": []}
+        )
+        self.assertEqual(res, [10000000000000])
 
 
 if __name__ == "__main__":

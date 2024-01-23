@@ -33,6 +33,7 @@ shared(msg) actor class ICRC1Canister(args: Internals.CanisterArgs) = this {
     type TxnResult = TokenTypes.TxnResult;
     type Operation = TokenTypes.Operation;
     type Transaction = TokenTypes.Transaction;
+    // follows ic.house supported structure
     type TxnRecord = TokenTypes.TxnRecord;
     type From = Address;
     type To = Address;
@@ -238,13 +239,13 @@ shared(msg) actor class ICRC1Canister(args: Internals.CanisterArgs) = this {
                 };
             };
         };
-        // insert record
+        // insert for drc202 record
         drc202.put(txn);
         index += 1;
         return #ok(txid);
     };
 
-    private func __transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _sa: ?Sa, _data: ?Data) : 
+    private func _transferFrom(__caller: Principal, _from: AccountId, _to: AccountId, _value: Amount, _sa: ?Sa, _data: ?Data) : 
     (result: TxnResult) {
         let from = _from;
         let to = _to;
@@ -373,7 +374,7 @@ shared(msg) actor class ICRC1Canister(args: Internals.CanisterArgs) = this {
             case(#TransferErr(err)){ return #Err(err); };
             case(_){};
         };
-        let res = __transferFrom(msg.caller, from, to, _args.amount, sub, data);
+        let res = _transferFrom(msg.caller, from, to, _args.amount, sub, data);
 
         // Store data to the DRC202 scalable bucket, requires a 20 second interval to initiate a batch store, and may be rejected if you store frequently.
         if (Time.now() > drc202_lastStorageTime + 20*1000000000) { 

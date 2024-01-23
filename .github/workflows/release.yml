@@ -32,4 +32,11 @@ jobs:
       run: shasum -a 256 ./icrc1.wasm  | cut -d ' ' -f 1 > icrc1.wasm.shasum
     - name: Print Wasm Hash
       run: cat ./icrc1.wasm.shasum
+    - name: Upload to release
+      uses: svenstaro/upload-release-action@v2
+      with:
+        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        file: ./icrc1.wasm*
+        overwrite: true
+        file_glob: true
         

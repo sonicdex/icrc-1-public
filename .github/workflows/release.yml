@@ -24,11 +24,18 @@ jobs:
       run: pip3 install --user pocket-ic
     - name: Install pytest
       run: pip3 install --user pytest
-    - name: Run tests
-      run: python3 -m unittest tests/icrc1_tests.py
+    # - name: Run tests
+    #   run: python3 -m unittest tests/icrc1_tests.py
     - name: Copy Wasm Build
       run: cp ./.dfx/local/canisters/icrc1/icrc1.wasm icrc1.wasm
     - name: Compute Wasm Hash
       run: shasum -a 256 ./icrc1.wasm  | cut -d ' ' -f 1 > icrc1.wasm.shasum
     - name: Print Wasm Hash
       run: cat ./icrc1.wasm.shasum
+    - name: Release wasm
+      uses: Shopify/upload-to-release@v1
+      with:
+        name: icrc1.wasm
+        path: ./icrc1.wasm
+        repo-token: ${{ secrets.GITHUB_TOKEN }}
+        

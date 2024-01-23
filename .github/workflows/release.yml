@@ -32,10 +32,4 @@ jobs:
       run: shasum -a 256 ./icrc1.wasm  | cut -d ' ' -f 1 > icrc1.wasm.shasum
     - name: Print Wasm Hash
       run: cat ./icrc1.wasm.shasum
-    - name: Release wasm
-      uses: Shopify/upload-to-release@master
-      with:
-        name: icrc1.wasm
-        path: ./icrc1.wasm
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
         

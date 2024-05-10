@@ -249,7 +249,12 @@ shared(msg) actor class ICRC1Canister(args: Internals.CanisterArgs) = this {
     (result: TxnResult) {
         let from = _from;
         let to = _to;
-        let operation: Operation = #transfer({ action = #send; });
+
+        let operation: Operation = if(_to == owner_){ 
+            #transfer({ action = #burn; });
+        } else {
+           #transfer({ action = #send; });
+        };
         // check fee
         if(not(_checkFee(from, _value))){
             return #err({ code=#InsufficientBalance; message="Insufficient Balance"; });
